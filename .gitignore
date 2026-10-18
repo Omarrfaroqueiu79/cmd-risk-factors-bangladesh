@@ -1,12 +1,8 @@
-﻿# Temporary office files & locks
-~$*
+﻿~$*
 *.tmp
-# Appeal & Private Financial Waiver Letters (keep private)
 APC_*
 Appeal_*
 Cover Letter*
 Ethical_Approval*
-# Python & Environment cache
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
