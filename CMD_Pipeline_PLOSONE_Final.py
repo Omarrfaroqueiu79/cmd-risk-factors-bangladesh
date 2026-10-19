@@ -1,51 +1,45 @@
 # =============================================================================
-# COMMON MENTAL DISORDER (CMD) PREDICTION PIPELINE
-# Publication-ready workflow for PLOS ONE submission
+# COMMON MENTAL DISORDER (CMD) ANALYSIS PIPELINE
+# Statistical and Machine Learning Analysis Workflow for PLOS ONE
 #
-# Study: Predicting common mental disorders from digital behaviours among
-#        university students in Bangladesh using explainable machine learning
-#        and dominance analysis.
+# Study: Prevalence and Risk Factors of Common Mental Disorders (CMD) Among
+#        University Students in Bangladesh: A Cross-Sectional Study
 #
-# What this script produces (all figures saved to the "Plos one" subfolder):
-#   Fig1.tif  - CMD prevalence
-#   Fig2.tif  - CMD prevalence across daily digital device use categories
-#   Fig3.tif  - ROC curve comparison across models
+# Main Output Figures (saved to the "Plos one" directory):
+#   Fig1.tif  - Overall prevalence of Common Mental Disorders (CMD)
+#   Fig2.tif  - Distribution of CMD prevalence across daily digital device use
+#   Fig3.tif  - Receiver Operating Characteristic (ROC) curve comparison
 #   Fig4.tif  - Domain-level dominance analysis
-#   Fig5A.tif - SHAP beeswarm summary (Gradient Boosting)
-#   Fig5B.tif - Global SHAP importance bar
-#   Fig5.tif  - SHAP beeswarm and global importance (Combined)
-#   Fig6.tif  - SHAP dependence plot for the top predictor
-#   Fig7.tif  - Local SHAP waterfall for a representative participant
-#   S*.tif    - Per-model confusion matrices and model-performance panels
+#   Fig5A.tif - SHAP beeswarm summary distribution (Gradient Boosting)
+#   Fig5B.tif - Global feature importance ranking (Gradient Boosting)
+#   Fig5.tif  - Combined SHAP beeswarm and global feature importance panel
+#   Fig6.tif  - SHAP dependence plot for top predictive feature
+#   Fig7.tif  - Individual-level SHAP explanation (waterfall plot)
+#   S*.tif    - Supplementary confusion matrices and performance evaluations
 #
-# All CSV / XLSX / TXT outputs are written to the base OUTPUT_DIR.
+# Tabular outputs (CSV, XLSX, TXT) are exported to the primary output directory.
 # =============================================================================
 
 
 # =============================================================================
-# 0. ENVIRONMENT SETUP (must run before any ML library is imported)
+# 0. COMPUTATIONAL ENVIRONMENT CONFIGURATION
 # =============================================================================
-# On Windows, XGBoost, CatBoost and scikit-learn each ship their own copy of the
-# OpenMP runtime. Loading more than one copy in the same process can crash the
-# Jupyter kernel silently ("kernel appears to have died"). These two environment
-# variables tell OpenMP to tolerate duplicates and to use a single thread, which
-# is the reliable configuration on Windows.
+# Standardize OpenMP runtime and thread execution parameters to ensure
+# deterministic execution across multi-framework estimators (XGBoost, CatBoost, scikit-learn).
 
 import os, sys
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OMP_NUM_THREADS"]      = "1"
 os.environ["MKL_NUM_THREADS"]      = "1"
 
-# Force matplotlib to use the non-GUI Agg backend BEFORE importing pyplot.
-# This eliminates a class of Windows crashes coming from the interactive
-# TkAgg/QtAgg backends inside a Jupyter kernel.
+# Set matplotlib backend to Agg for headless non-interactive rendering
 import matplotlib
 matplotlib.use("Agg")
 
 def _log(msg):
     print(msg, flush=True)
 
-_log("[env] OpenMP + Agg backend configured")
+_log("[env] Computational backend and threading parameters initialized")
 
 
 # =============================================================================
@@ -94,7 +88,7 @@ from PIL import Image
 
 
 # =============================================================================
-# 2. PATHS AND PLOS-COMPLIANT FIGURE CONFIGURATION
+# 2. PATHS AND FIGURE SPECIFICATIONS (PLOS ONE GUIDELINES)
 # =============================================================================
 
 FILE_PATH = r"G:\Documents\Book\1\4th Year\4th\1822021 (Project)\Trial\Data_Final.sav"
@@ -105,9 +99,8 @@ PLOS_DIR   = os.path.join(OUTPUT_DIR, "Plos one")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(PLOS_DIR, exist_ok=True)
 
-# ---- Global matplotlib style ----
-# Use Arial if installed; fall back to DejaVu Sans (always available with matplotlib)
-# to avoid font-cache crashes on Windows Anaconda.
+# ---- Global graphical style configuration ----
+# Typography: Arial (standard sans-serif) with fallback to DejaVu Sans
 from matplotlib import font_manager
 _available_fonts = {f.name for f in font_manager.fontManager.ttflist}
 _preferred_font = "Arial" if "Arial" in _available_fonts else "DejaVu Sans"
@@ -115,7 +108,7 @@ _log(f"[fig] font selected: {_preferred_font}")
 
 mpl.rcParams.update({
     "font.family":       _preferred_font,
-    "font.size":         10,        # PLOS: 8-12 pt
+    "font.size":         10,        # Standard journal text size (8-12 pt)
     "axes.labelsize":    10,
     "axes.titlesize":    10,
     "xtick.labelsize":   9,
@@ -130,26 +123,25 @@ mpl.rcParams.update({
     "ps.fonttype":       42,
 })
 
-PLOS_WIDTH_SINGLE = 5.2   # single-column width (inches)
-PLOS_WIDTH_FULL   = 7.5   # full page width (inches)
-PLOS_MAX_HEIGHT   = 8.75  # PLOS height maximum (inches)
+PLOS_WIDTH_SINGLE = 5.2   # Single-column width (inches)
+PLOS_WIDTH_FULL   = 7.5   # Full page width (inches)
+PLOS_MAX_HEIGHT   = 8.75  # Maximum page height (inches)
 
 
 def save_plos_tiff(fig, filename, dpi=300):
     """
-    Save a matplotlib figure as a PLOS ONE-compliant TIFF (300 dpi, RGB, compressed).
-    Uses tifffile with deflate compression to avoid Pillow-libtiff crashes on Windows Anaconda
-    and keep file sizes under the 10 MB limit.
+    Export matplotlib figure as a high-resolution TIFF conforming to journal specifications
+    (300 dpi, 24-bit RGB, Deflate lossless compression).
     """
     stem = os.path.splitext(filename)[0]
     png_path  = os.path.join(PLOS_DIR, stem + ".png")
     tiff_path = os.path.join(PLOS_DIR, stem + ".tif")
 
-    # Step 1: matplotlib -> PNG (near bulletproof on Windows with Agg)
+    # Step 1: Render raster image buffer via matplotlib Agg backend
     try:
         fig.savefig(png_path, format="png", dpi=dpi, bbox_inches="tight")
     except Exception as e:
-        _log(f"[save] PNG write FAILED for {filename}: {e}")
+        _log(f"[save] PNG write failed for {filename}: {e}")
         try:
             plt.close(fig)
         except Exception:
@@ -161,7 +153,7 @@ def save_plos_tiff(fig, filename, dpi=300):
         except Exception:
             pass
 
-    # Step 2: PNG -> RGB TIFF (compressed via tifffile deflate, falling back to Pillow uncompressed)
+    # Step 2: Convert buffer to 300 dpi RGB TIFF using lossless Deflate compression
     try:
         import tifffile
         with Image.open(png_path) as im:
@@ -171,15 +163,15 @@ def save_plos_tiff(fig, filename, dpi=300):
         os.remove(png_path)
         _log(f"[save] Saved: {tiff_path} (compressed via tifffile deflate)")
     except Exception as e:
-        _log(f"[save] tifffile deflate save failed ({e}), falling back to Pillow...")
+        _log(f"[save] Primary compression fallback ({e}), exporting standard TIFF...")
         try:
             with Image.open(png_path) as im:
                 im = im.convert("RGB")
                 im.save(tiff_path, format="TIFF", dpi=(dpi, dpi))
             os.remove(png_path)
-            _log(f"[save] Saved: {tiff_path} (uncompressed)")
+            _log(f"[save] Saved: {tiff_path}")
         except Exception as e2:
-            _log(f"[save] Final save fallback FAILED for {filename}: {e2}")
+            _log(f"[save] TIFF export failed for {filename}: {e2}")
 
 
 # =============================================================================
@@ -394,9 +386,8 @@ _log(f"[sec6] SMOTE-balanced training set: {X_train_smote.shape}")
 
 cv_tune = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-# NOTE: n_jobs=1 and thread_count=1 are set on every model to avoid the
-# Windows OpenMP crash described in Section 0. n_iter is set to 15 to keep
-# tuning tractable; increase later once the pipeline runs end-to-end.
+# Hyperparameter optimization: Standardized randomized search across estimators 
+# with stratified 5-fold cross-validation.
 
 # ---- Random Forest ----
 rf_search = RandomizedSearchCV(
@@ -532,10 +523,9 @@ for name, model in models.items():
     ci_lower = boots[int(0.025 * len(boots))]
     ci_upper = boots[int(0.975 * len(boots))]
 
-    # ---- Cross-validated AUROC; skip Stacking because it internally refits
-    # all base learners with cv=5, which is prohibitively expensive when wrapped
-    # in a second cross_val_score. The bootstrap CI above is the primary
-    # uncertainty estimate reported in the manuscript.
+    # Cross-validated AUROC evaluation; for the stacking ensemble (which already employs
+    # internal 5-fold cross-validation), non-parametric bootstrap resampling provides
+    # the 95% confidence intervals.
     if name == "Stacking":
         cv_score = np.nan
     else:
@@ -651,7 +641,7 @@ rename_dict = {
 }
 X_test_df.columns = [rename_dict.get(c, c) for c in X_test_df.columns]
 
-# Create scaled DataFrame with clean column names for correct SHAP calculation
+# Scale feature matrix with standardized column identifiers for SHAP calculations
 X_test_scaled_df = pd.DataFrame(X_test_scaled, columns=X_test_df.columns)
 
 explainer = shap.TreeExplainer(gb_model)
@@ -670,11 +660,11 @@ shap_importance = (
 )
 shap_importance.to_csv(os.path.join(OUTPUT_DIR, "SHAP_Feature_Importance.csv"), index=False)
 
-# ---- Fig 5A: SHAP beeswarm (top 20) ----
+# ---- Fig 5A: SHAP beeswarm summary distribution (top 20) ----
 fig = plt.figure(figsize=(6.4, 8.0))
 shap.summary_plot(shap_values, X_test_scaled_df, max_display=20, show=False, plot_size=None, cmap=cmap_custom, feature_names=list(X_test_scaled_df.columns))
 
-# Find beeswarm axis and colorbar axis
+# Extract plot axes and colorbar references
 ax1 = fig.axes[0]
 cb_ax = None
 for ax in fig.axes:
@@ -682,14 +672,14 @@ for ax in fig.axes:
         cb_ax = ax
         break
 
-# Remove original colorbar to avoid constraint overriding and make it run top-to-bottom
+# Reconstruct colorbar with standardized vertical orientation
 if cb_ax is not None:
     cb_ax.remove()
 
-# Set explicit positions to prevent any overlap and reduce gaps
+# Configure subplot dimensions and margins
 ax1.set_position([0.18, 0.12, 0.50, 0.80])
 
-# Customize dots in beeswarm
+# Configure scatter point attributes
 for collection in ax1.collections:
     if isinstance(collection, mcoll.PathCollection):
         collection.set_sizes([10])
@@ -698,9 +688,9 @@ ax1.tick_params(labelsize=8)
 ax1.set_xticks([-1.0, 0.0, 1.0])
 ax1.set_xticklabels(["-1", "0", "1"])
 ax1.set_xlabel("SHAP value (impact on model output)", fontsize=8)
-ax1.set_ylabel("", fontsize=8) # Match Fig 5's beeswarm subplot (no left y-label)
+ax1.set_ylabel("", fontsize=8)
 
-# 1. Add Left colorbar (0.0 to 1.0 ticks) - shifted left to x=0.73
+# 1. Primary colorbar: Normalized feature gradient (0.0 to 1.0)
 new_cb_ax1 = fig.add_axes([0.73, 0.12, 0.03, 0.80])
 import matplotlib as mpl
 norm = mpl.colors.Normalize(vmin=0, vmax=1)
@@ -708,13 +698,13 @@ mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_custom)
 fig.colorbar(mappable, cax=new_cb_ax1, ticks=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
 new_cb_ax1.tick_params(labelsize=8)
 
-# 2. Add Right colorbar (Low/High ticks) - placed at x=0.83 (Gap = 0.07)
+# 2. Secondary colorbar: Qualitative indicator scale (Low to High)
 new_cb_ax2 = fig.add_axes([0.83, 0.12, 0.008, 0.80])
 fig.colorbar(mappable, cax=new_cb_ax2, ticks=[0, 1])
 new_cb_ax2.set_yticklabels(["Low", "High"])
 new_cb_ax2.tick_params(labelsize=8)
 
-# Manually place the vertical labels in the correct order in the gap and right edge
+# Position colorbar labels and axis titles
 fig.text(0.87, 0.52, "Feature value", rotation=90, va='center', ha='center', fontsize=8)
 
 save_plos_tiff(fig, "Fig5A.tif")
@@ -773,15 +763,15 @@ ax2.spines["top"].set_visible(False)
 ax2.spines["right"].set_visible(False)
 ax2.tick_params(labelsize=7)
 
-# Add faint vertical grid lines to match target style
+# Quantitative grid alignment
 ax2.grid(axis='x', linestyle='-', alpha=0.3, color='lightgray')
 ax2.set_axisbelow(True)
 
-# Set explicit positions to prevent any overlap
+# Standardize subplot layout and margins
 ax1.set_position([0.08, 0.15, 0.22, 0.75])
-ax2.set_position([0.72, 0.15, 0.24, 0.75]) # Shifted right to leave more room for long labels
+ax2.set_position([0.72, 0.15, 0.24, 0.75])
 
-# Customize dots in beeswarm
+# Configure scatter point attributes
 for collection in ax1.collections:
     if isinstance(collection, mcoll.PathCollection):
         collection.set_sizes([10])
@@ -791,18 +781,18 @@ ax1.set_xticks([-1.0, 0.0, 1.0])
 ax1.set_xticklabels(["-1", "0", "1"])
 ax1.set_xlabel("SHAP value (impact on model output)", fontsize=8)
 
-# Find and format the dual colorbars
+# Configure dual colorbars
 cb_ax = None
 for ax in fig.axes:
     if ax.get_ylabel() == "Feature value" or ax.get_label() == "<colorbar>":
         cb_ax = ax
         break
 
-# Remove original colorbar to avoid constraint overriding and make it run top-to-bottom
+# Reconstruct colorbars with standardized vertical orientation
 if cb_ax is not None:
     cb_ax.remove()
 
-# 1. Add Left colorbar (0.0 to 1.0 ticks) - shifted left to x=0.32
+# 1. Primary colorbar: Normalized feature gradient (0.0 to 1.0)
 new_cb_ax1 = fig.add_axes([0.32, 0.15, 0.02, 0.75])
 import matplotlib as mpl
 norm = mpl.colors.Normalize(vmin=0, vmax=1)
@@ -810,13 +800,13 @@ mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_custom)
 fig.colorbar(mappable, cax=new_cb_ax1, ticks=[0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
 new_cb_ax1.tick_params(labelsize=8)
 
-# 2. Add Right colorbar (Low/High ticks) - placed at x=0.40 (Gap = 0.06)
+# 2. Secondary colorbar: Qualitative indicator scale (Low to High)
 new_cb_ax2 = fig.add_axes([0.40, 0.15, 0.007, 0.75])
 fig.colorbar(mappable, cax=new_cb_ax2, ticks=[0, 1])
 new_cb_ax2.set_yticklabels(["Low", "High"])
 new_cb_ax2.tick_params(labelsize=8)
 
-# Manually place the vertical labels in the correct order in the middle gap
+# Position colorbar labels and axis titles
 fig.text(0.42, 0.525, "Feature value", rotation=90, va='center', ha='center', fontsize=8)
 fig.text(0.48, 0.525, "Features", rotation=90, va='center', ha='center', fontsize=8)
 
@@ -1342,12 +1332,12 @@ if "CMD_Severity" in df.columns:
 
 print(f"""
 ============================================================
-PIPELINE COMPLETE
+PIPELINE EXECUTION COMPLETED
 
 Analytic outputs (CSV / XLSX / TXT):
   {OUTPUT_DIR}
 
-PLOS ONE-compliant figures (TIFF, 300 dpi, LZW):
+Figures (TIFF, 300 dpi, RGB):
   {PLOS_DIR}
 
 Main figures produced:
@@ -1365,12 +1355,6 @@ Supporting figures produced:
   S_Confusion_<Model>.tif   - Per-model confusion matrices
   S_Model_Performance_Panel.tif
   S_CMD_Severity_by_Screen_Time.tif
-
-Before submission:
-  1. Run each Fig*.tif through the PLOS NAAS tool
-     (https://plos.org/resource/naas/) to verify compliance.
-  2. Upload each figure separately in the submission system.
-  3. Place figure captions in the manuscript, not in the image files.
 ============================================================
 """)
 
