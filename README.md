@@ -1,4 +1,6 @@
-# Prevalence and Risk Factors of Common Mental Disorders (CMD) Among University Students in Bangladesh: A Cross-Sectional Study
+# Digital Device Use and Common Mental Disorders among University Students in Bangladesh: A Multicenter Study of Determinants and Their Relative Importance
+
+This repository contains the dataset, statistical analysis pipelines, and dominance analysis workflows investigating the associations between digital device use and Common Mental Disorders (CMD) among university students.
 
 This repository contains the dataset and complete statistical and machine learning analysis pipelines for evaluating Common Mental Disorders (CMD) and associated digital behavioral, physical, and psychosocial risk factors among university students.
 
