@@ -642,7 +642,7 @@ gb_model = models["GB"]
 X_test_df = pd.DataFrame(X_test, columns=X.columns).copy()
 X_test_df.columns = [c.replace("_", " ").strip() for c in X_test_df.columns]
 
-# Rename columns to publication-ready short names
+# Standardize feature labels for graphical presentation
 rename_dict = {
     "Average DD Use Time greater 6": "Average DD Use Time > 6",
     "Average DD Use Time less 2": "Average DD Use Time < 2",
@@ -745,7 +745,7 @@ ax.spines["right"].set_visible(False)
 ax.grid(axis='x', linestyle='-', alpha=0.3, color='lightgray')
 ax.set_axisbelow(True)
 
-ax.set_position([0.45, 0.12, 0.48, 0.80]) # Shifted right to leave more room for long labels
+ax.set_position([0.45, 0.12, 0.48, 0.80])  # Adjust margins for feature labels
 
 save_plos_tiff(fig, "Fig5B.tif")
 
